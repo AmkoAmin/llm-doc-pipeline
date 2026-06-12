@@ -4,9 +4,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application settings, loaded from environment variables / .env file."""
 
-    openai_api_key: str = ""
-    openai_model: str = "gpt-4o"
-    embedding_model: str = "text-embedding-3-small"
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-opus-4-8"
+    voyage_api_key: str = ""
+    embedding_model: str = "voyage-3.5"
+    llm_max_tokens: int = 8192
 
     chunk_size: int = 1000
     chunk_overlap: int = 200

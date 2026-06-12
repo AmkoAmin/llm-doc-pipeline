@@ -4,7 +4,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_anthropic import ChatAnthropic
+from langchain_voyageai import VoyageAIEmbeddings
 
 from app.config import settings
 from app.schemas import (
@@ -24,8 +25,9 @@ from app.services.rag import EmptyIndexError, RagService
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    llm = ChatOpenAI(model=settings.openai_model, temperature=0)
-    embeddings = OpenAIEmbeddings(model=settings.embedding_model)
+    # No temperature: sampling params are rejected by claude-opus-4-8.
+    llm = ChatAnthropic(model=settings.anthropic_model, max_tokens=settings.llm_max_tokens)
+    embeddings = VoyageAIEmbeddings(model=settings.embedding_model)
     index_path = Path(settings.vector_store_path) if settings.vector_store_path else None
 
     app.state.analysis = AnalysisService(llm, max_input_chars=settings.max_llm_input_chars)
