@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     """Application settings, loaded from environment variables / .env file."""
 
     anthropic_api_key: str = ""
-    anthropic_model: str = "claude-opus-4-8"
+    anthropic_model: str = "claude-sonnet-4-6"
     voyage_api_key: str = ""
     embedding_model: str = "voyage-3.5"
     llm_max_tokens: int = 8192

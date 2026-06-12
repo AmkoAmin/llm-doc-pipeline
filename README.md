@@ -64,7 +64,7 @@ Set via environment variables or `.env` (see `.env.example`):
 | Variable | Default | Description |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | – | Anthropic API key (required at runtime) |
-| `ANTHROPIC_MODEL` | `claude-opus-4-8` | Claude model for all LLM tasks |
+| `ANTHROPIC_MODEL` | `claude-sonnet-4-6` | Claude model for all LLM tasks |
 | `VOYAGE_API_KEY` | – | Voyage AI API key for embeddings (required at runtime) |
 | `EMBEDDING_MODEL` | `voyage-3.5` | Voyage embedding model for FAISS |
 | `LLM_MAX_TOKENS` | `8192` | Max output tokens per LLM call |
