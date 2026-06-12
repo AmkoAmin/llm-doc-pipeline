@@ -4,8 +4,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-4-8}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-voyage-3.5}
       VECTOR_STORE_PATH: /srv/data/faiss_index
     volumes:
       - faiss-data:/srv/data
