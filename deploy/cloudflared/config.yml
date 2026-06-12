@@ -1,0 +1,13 @@
+# Cloudflare Tunnel config — copy to ~/.cloudflared/config.yml
+# (or /etc/cloudflared/config.yml when running as a system service).
+#
+# Replace <TUNNEL-ID> with the id printed by `cloudflared tunnel create pdf-api`
+# (also the filename of the credentials json).
+tunnel: pdf-api
+credentials-file: /home/aminskenderi/.cloudflared/<TUNNEL-ID>.json
+
+ingress:
+  - hostname: api.aminskenderi.me
+    service: http://localhost:8000
+  # Everything that doesn't match a hostname above:
+  - service: http_status:404
