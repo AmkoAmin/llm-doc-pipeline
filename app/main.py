@@ -1,9 +1,13 @@
 """FastAPI application exposing the document analysis and RAG pipeline."""
 
+import time
+from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from langchain_anthropic import ChatAnthropic
 from langchain_voyageai import VoyageAIEmbeddings
 
@@ -47,6 +51,58 @@ app = FastAPI(
 )
 
 
+class SlidingWindowRateLimiter:
+    """In-memory per-key sliding window. Sufficient for a single instance."""
+
+    def __init__(self, window_seconds: float = 60.0):
+        self.window_seconds = window_seconds
+        self._hits: dict[str, deque[float]] = defaultdict(deque)
+
+    def allow(self, key: str, limit: int) -> bool:
+        now = time.monotonic()
+        hits = self._hits[key]
+        while hits and now - hits[0] > self.window_seconds:
+            hits.popleft()
+        if len(hits) >= limit:
+            return False
+        hits.append(now)
+        return True
+
+
+rate_limiter = SlidingWindowRateLimiter()
+
+
+def client_ip(request: Request) -> str:
+    # Behind Cloudflare Tunnel every connection comes from localhost; the real
+    # client address is only available via the CF-Connecting-IP header.
+    return request.headers.get("cf-connecting-ip") or (
+        request.client.host if request.client else "unknown"
+    )
+
+
+@app.middleware("http")
+async def rate_limit(request: Request, call_next):
+    limit = settings.rate_limit_per_minute
+    if limit > 0 and request.method == "POST":
+        if not rate_limiter.allow(client_ip(request), limit):
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Rate limit exceeded, try again in a minute."},
+            )
+    return await call_next(request)
+
+
+# Added after the rate limiter so CORS runs outermost and 429 responses
+# still carry CORS headers (otherwise the browser hides them from the page).
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
+
 def get_analysis(request: Request) -> AnalysisService:
     return request.app.state.analysis
 
@@ -57,6 +113,11 @@ def get_rag(request: Request) -> RagService:
 
 async def read_document(file: UploadFile) -> str:
     data = await file.read()
+    if len(data) > settings.max_upload_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large (max {settings.max_upload_bytes // (1024 * 1024)} MB).",
+        )
     try:
         return extract_text(file.filename or "upload", data)
     except EmptyDocumentError as exc:

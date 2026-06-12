@@ -1,3 +1,6 @@
+import app.main as app_main
+from app.config import settings
+from app.main import SlidingWindowRateLimiter
 from tests.conftest import RAG_ANSWER, SUMMARY_TEXT, make_pdf
 
 
@@ -90,3 +93,39 @@ def test_rag_query_before_ingest_conflict(client):
 def test_rag_query_validation(client):
     response = client.post("/rag/query", json={"question": ""})
     assert response.status_code == 422
+
+
+def test_oversized_upload_rejected(client, monkeypatch):
+    monkeypatch.setattr(settings, "max_upload_bytes", 100)
+    response = client.post(
+        "/documents/summarize", files=upload("big.txt", b"x" * 200, "text/plain")
+    )
+    assert response.status_code == 413
+
+
+def test_rate_limit_kicks_in(client, monkeypatch):
+    monkeypatch.setattr(settings, "rate_limit_per_minute", 2)
+    monkeypatch.setattr(app_main, "rate_limiter", SlidingWindowRateLimiter())
+    for _ in range(2):
+        response = client.post(
+            "/documents/summarize", files=upload("doc.txt", b"some text", "text/plain")
+        )
+        assert response.status_code == 200
+    response = client.post(
+        "/documents/summarize", files=upload("doc.txt", b"some text", "text/plain")
+    )
+    assert response.status_code == 429
+    # GET endpoints like /health stay unaffected
+    assert client.get("/health").status_code == 200
+
+
+def test_cors_preflight_for_site_origin(client):
+    response = client.options(
+        "/rag/query",
+        headers={
+            "Origin": "https://aminskenderi.me",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "https://aminskenderi.me"

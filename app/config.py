@@ -19,6 +19,15 @@ class Settings(BaseSettings):
     # Where the FAISS index is persisted. Empty string disables persistence.
     vector_store_path: str = "data/faiss_index"
 
+    # Comma-separated list of allowed browser origins (CORS).
+    cors_origins: str = "https://aminskenderi.me,https://www.aminskenderi.me"
+
+    # POST requests per client IP per minute. 0 disables rate limiting.
+    rate_limit_per_minute: int = 10
+
+    # Maximum upload size in bytes.
+    max_upload_bytes: int = 10 * 1024 * 1024
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
