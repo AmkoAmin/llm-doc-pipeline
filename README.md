@@ -1,13 +1,13 @@
 # LLM Document Analysis Pipeline
 
 Microservice that classifies, summarizes and extracts structured JSON data from
-unstructured PDF and text documents using GPT-4o and LangChain, plus a RAG
-pipeline backed by a FAISS vector store. Exposed via async FastAPI endpoints and
-containerized with Docker Compose.
+unstructured PDF and text documents using Claude (Anthropic API) and LangChain,
+plus a RAG pipeline backed by a FAISS vector store with Voyage AI embeddings.
+Exposed via async FastAPI endpoints and containerized with Docker Compose.
 
 ## Stack
 
-Python · LangChain · OpenAI API · FastAPI · FAISS · Docker
+Python · LangChain · Anthropic API · Voyage AI · FastAPI · FAISS · Docker
 
 ## API
 
@@ -27,7 +27,7 @@ Interactive docs at `http://localhost:8000/docs`.
 ## Quick start
 
 ```bash
-cp .env.example .env   # add your OpenAI API key
+cp .env.example .env   # add your Anthropic and Voyage AI API keys
 docker compose up --build
 ```
 
@@ -51,7 +51,7 @@ uvicorn app.main:app --reload
 
 ## Tests
 
-The test suite runs without an OpenAI key — LLM and embeddings are faked:
+The test suite runs without any API keys — LLM and embeddings are faked:
 
 ```bash
 pytest
@@ -63,8 +63,10 @@ Set via environment variables or `.env` (see `.env.example`):
 
 | Variable | Default | Description |
 |---|---|---|
-| `OPENAI_API_KEY` | – | OpenAI API key (required at runtime) |
-| `OPENAI_MODEL` | `gpt-4o` | Chat model for all LLM tasks |
-| `EMBEDDING_MODEL` | `text-embedding-3-small` | Embedding model for FAISS |
+| `ANTHROPIC_API_KEY` | – | Anthropic API key (required at runtime) |
+| `ANTHROPIC_MODEL` | `claude-opus-4-8` | Claude model for all LLM tasks |
+| `VOYAGE_API_KEY` | – | Voyage AI API key for embeddings (required at runtime) |
+| `EMBEDDING_MODEL` | `voyage-3.5` | Voyage embedding model for FAISS |
+| `LLM_MAX_TOKENS` | `8192` | Max output tokens per LLM call |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `1000` / `200` | Text splitting for RAG ingestion |
 | `VECTOR_STORE_PATH` | `data/faiss_index` | FAISS persistence path (empty = in-memory only) |
