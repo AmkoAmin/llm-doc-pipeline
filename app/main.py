@@ -30,8 +30,15 @@ from app.services.rag import EmptyIndexError, RagService
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # No temperature: sampling params are rejected by claude-opus-4-8.
-    llm = ChatAnthropic(model=settings.anthropic_model, max_tokens=settings.llm_max_tokens)
-    embeddings = VoyageAIEmbeddings(model=settings.embedding_model)
+    llm = ChatAnthropic(
+        model=settings.anthropic_model,
+        max_tokens=settings.llm_max_tokens,
+        api_key=settings.anthropic_api_key or None,
+    )
+    embeddings = VoyageAIEmbeddings(
+        model=settings.embedding_model,
+        api_key=settings.voyage_api_key or None,
+    )
     index_path = Path(settings.vector_store_path) if settings.vector_store_path else None
 
     app.state.analysis = AnalysisService(llm, max_input_chars=settings.max_llm_input_chars)
