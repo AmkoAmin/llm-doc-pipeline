@@ -1,5 +1,8 @@
 # LLM Document Analysis Pipeline
 
+[![CI](https://github.com/AmkoAmin/llm-doc-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/AmkoAmin/llm-doc-pipeline/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
+
 Microservice that classifies, summarizes and extracts structured JSON data from
 unstructured PDF and text documents using Claude (Anthropic API) and LangChain,
 plus a RAG pipeline backed by a FAISS vector store with Voyage AI embeddings.
