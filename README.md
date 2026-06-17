@@ -73,3 +73,7 @@ Set via environment variables or `.env` (see `.env.example`):
 | `LLM_MAX_TOKENS` | `8192` | Max output tokens per LLM call |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `1000` / `200` | Text splitting for RAG ingestion |
 | `VECTOR_STORE_PATH` | `data/faiss_index` | FAISS persistence path (empty = in-memory only) |
+
+## License
+
+Released under the [MIT License](LICENSE).
