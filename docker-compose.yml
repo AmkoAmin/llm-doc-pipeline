@@ -9,6 +9,7 @@ services:
       VOYAGE_API_KEY: ${VOYAGE_API_KEY}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-voyage-3.5}
       VECTOR_STORE_PATH: /srv/data/faiss_index
+      DEMO_VECTOR_STORE_PATH: /srv/data/demo_index
       CORS_ORIGINS: ${CORS_ORIGINS:-https://aminskenderi.me,https://www.aminskenderi.me}
       RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-10}
     volumes:

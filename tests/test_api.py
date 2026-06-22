@@ -90,6 +90,37 @@ def test_rag_query_before_ingest_conflict(client):
     assert response.status_code == 409
 
 
+def test_rag_demo_mode_queries_seeded_index(client, rag_demo_service):
+    from app.services.documents import chunk_text
+
+    rag_demo_service.ingest(
+        chunk_text(
+            "Amin Skenderi studies computer engineering at TU Berlin.",
+            filename="cv.pdf",
+        )
+    )
+    response = client.post(
+        "/rag/query",
+        json={"question": "What does Amin study?", "mode": "demo"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["answer"] == RAG_ANSWER
+    assert body["sources"][0]["metadata"]["source"] == "cv.pdf"
+
+
+def test_rag_demo_and_upload_indexes_are_separate(client):
+    # A document uploaded to the upload index must not be visible in demo mode.
+    client.post(
+        "/rag/ingest",
+        files=upload("report.txt", b"Revenue grew by 12 percent in Q1.", "text/plain"),
+    )
+    response = client.post(
+        "/rag/query", json={"question": "anything", "mode": "demo"}
+    )
+    assert response.status_code == 409
+
+
 def test_rag_query_validation(client):
     response = client.post("/rag/query", json={"question": ""})
     assert response.status_code == 422

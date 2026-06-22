@@ -43,6 +43,11 @@ class RagService:
                 str(index_path), embeddings, allow_dangerous_deserialization=True
             )
 
+    @property
+    def is_empty(self) -> bool:
+        """True if no documents have been ingested yet."""
+        return self._store is None
+
     def ingest(self, documents: list[Document]) -> int:
         if not documents:
             return 0
