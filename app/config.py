@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     # Where the FAISS index is persisted. Empty string disables persistence.
     vector_store_path: str = "data/faiss_index"
 
+    # Read-only demo index, pre-seeded on startup from the documents in seed_path.
+    demo_vector_store_path: str = "data/demo_index"
+    seed_path: str = "seed"
+
     # Comma-separated list of allowed browser origins (CORS).
     cors_origins: str = "https://aminskenderi.me,https://www.aminskenderi.me"
 

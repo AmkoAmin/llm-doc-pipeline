@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -48,6 +48,8 @@ class IngestResponse(BaseModel):
 class QueryRequest(BaseModel):
     question: str = Field(min_length=1)
     top_k: int = Field(default=4, ge=1, le=20)
+    # "upload" queries the user-uploaded index, "demo" the pre-seeded demo index.
+    mode: Literal["upload", "demo"] = "upload"
 
 
 class SourceChunk(BaseModel):

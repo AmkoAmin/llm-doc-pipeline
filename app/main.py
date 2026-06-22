@@ -27,6 +27,33 @@ from app.services.documents import EmptyDocumentError, chunk_text, extract_text
 from app.services.rag import EmptyIndexError, RagService
 
 
+def seed_demo_index(rag_demo: RagService) -> None:
+    """Populate the read-only demo index from the documents in the seed directory.
+
+    Skips the work when the index was already built and loaded from disk, so the
+    seed documents are embedded at most once.
+    """
+    if not rag_demo.is_empty:
+        return
+    seed_dir = Path(settings.seed_path)
+    if not seed_dir.is_dir():
+        return
+    for path in sorted(seed_dir.iterdir()):
+        if not path.is_file():
+            continue
+        try:
+            text = extract_text(path.name, path.read_bytes())
+        except EmptyDocumentError:
+            continue
+        chunks = chunk_text(
+            text,
+            filename=path.name,
+            chunk_size=settings.chunk_size,
+            chunk_overlap=settings.chunk_overlap,
+        )
+        rag_demo.ingest(chunks)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # No temperature: sampling params are rejected by claude-opus-4-8.
@@ -40,9 +67,19 @@ async def lifespan(app: FastAPI):
         api_key=settings.voyage_api_key or None,
     )
     index_path = Path(settings.vector_store_path) if settings.vector_store_path else None
+    demo_index_path = (
+        Path(settings.demo_vector_store_path) if settings.demo_vector_store_path else None
+    )
 
     app.state.analysis = AnalysisService(llm, max_input_chars=settings.max_llm_input_chars)
     app.state.rag = RagService(embeddings, llm, index_path=index_path)
+
+    rag_demo = RagService(embeddings, llm, index_path=demo_index_path)
+    try:
+        seed_demo_index(rag_demo)
+    except Exception as exc:  # noqa: BLE001 - demo seeding must never block startup
+        print(f"[demo] seeding skipped: {exc}")
+    app.state.rag_demo = rag_demo
     yield
 
 
@@ -116,6 +153,10 @@ def get_analysis(request: Request) -> AnalysisService:
 
 def get_rag(request: Request) -> RagService:
     return request.app.state.rag
+
+
+def get_rag_demo(request: Request) -> RagService:
+    return request.app.state.rag_demo
 
 
 async def read_document(file: UploadFile) -> str:
@@ -211,10 +252,12 @@ async def ingest_document(
 async def query_documents(
     body: QueryRequest,
     rag: RagService = Depends(get_rag),
+    rag_demo: RagService = Depends(get_rag_demo),
 ) -> QueryResponse:
     """Answer a question using retrieval-augmented generation over ingested documents."""
+    service = rag_demo if body.mode == "demo" else rag
     try:
-        answer, docs = await rag.query(body.question, top_k=body.top_k)
+        answer, docs = await service.query(body.question, top_k=body.top_k)
     except EmptyIndexError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return QueryResponse(
