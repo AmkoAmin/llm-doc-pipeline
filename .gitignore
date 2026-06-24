@@ -14,7 +14,8 @@ data/
 
 # IDE
 .idea/
-.vscode/
+.vscode/*
+!.vscode/settings.json
 
 # Local screenshots
 *.png
