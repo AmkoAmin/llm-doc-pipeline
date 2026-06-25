@@ -310,8 +310,17 @@ async def providers(
     llms: dict[str, BaseChatModel] = Depends(get_llms),
     default: str = Depends(get_default_provider),
 ) -> dict[str, Any]:
-    """List the chat LLM providers that are configured and available."""
-    return {"providers": sorted(llms.keys()), "default": default}
+    """List chat LLM providers.
+
+    "supported" is every provider the code knows about; "providers" is the
+    subset whose credentials are configured (i.e. that can actually answer).
+    The UI can show the full choice and mark the rest as not enabled.
+    """
+    return {
+        "providers": sorted(llms.keys()),
+        "supported": list(SUPPORTED_PROVIDERS),
+        "default": default,
+    }
 
 
 @app.post("/rag/query", response_model=QueryResponse)

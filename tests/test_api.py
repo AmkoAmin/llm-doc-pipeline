@@ -95,6 +95,7 @@ def test_providers_endpoint(client):
     assert response.status_code == 200
     body = response.json()
     assert body["providers"] == ["anthropic"]
+    assert body["supported"] == ["anthropic", "openai"]
     assert body["default"] == "anthropic"
 
 
