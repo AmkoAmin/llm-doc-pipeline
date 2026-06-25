@@ -90,6 +90,39 @@ def test_rag_query_before_ingest_conflict(client):
     assert response.status_code == 409
 
 
+def test_providers_endpoint(client):
+    response = client.get("/providers")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["providers"] == ["anthropic"]
+    assert body["default"] == "anthropic"
+
+
+def test_rag_query_with_explicit_available_provider(client):
+    client.post(
+        "/rag/ingest",
+        files=upload("report.txt", b"Revenue grew by 12 percent in Q1.", "text/plain"),
+    )
+    response = client.post(
+        "/rag/query",
+        json={"question": "How much did revenue grow?", "top_k": 1, "provider": "anthropic"},
+    )
+    assert response.status_code == 200
+    assert response.json()["answer"] == RAG_ANSWER
+
+
+def test_rag_query_unavailable_provider_returns_400(client):
+    client.post(
+        "/rag/ingest",
+        files=upload("report.txt", b"Revenue grew by 12 percent in Q1.", "text/plain"),
+    )
+    response = client.post(
+        "/rag/query",
+        json={"question": "anything", "provider": "openai"},
+    )
+    assert response.status_code == 400
+
+
 def test_rag_demo_mode_queries_seeded_index(client, rag_demo_service):
     from app.services.documents import chunk_text
 

@@ -50,6 +50,8 @@ class QueryRequest(BaseModel):
     top_k: int = Field(default=4, ge=1, le=20)
     # "upload" queries the user-uploaded index, "demo" the pre-seeded demo index.
     mode: Literal["upload", "demo"] = "upload"
+    # Chat LLM for answering. None = server default. Embeddings are unaffected.
+    provider: Literal["anthropic", "openai"] | None = None
 
 
 class SourceChunk(BaseModel):
