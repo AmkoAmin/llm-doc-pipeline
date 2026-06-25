@@ -35,6 +35,7 @@ class RagService:
     ):
         self.embeddings = embeddings
         self.index_path = index_path
+        self._llm = llm
         self._answer_chain = RAG_PROMPT | llm | StrOutputParser()
         self._store: FAISS | None = None
 
@@ -60,7 +61,12 @@ class RagService:
             self._store.save_local(str(self.index_path))
         return len(documents)
 
-    async def query(self, question: str, top_k: int = 4) -> tuple[str, list[Document]]:
+    async def query(
+        self,
+        question: str,
+        top_k: int = 4,
+        llm: BaseChatModel | None = None,
+    ) -> tuple[str, list[Document]]:
         if self._store is None:
             raise EmptyIndexError("No documents have been ingested yet")
 
@@ -68,5 +74,8 @@ class RagService:
         context = "\n\n---\n\n".join(
             f"[{doc.metadata.get('source', 'unknown')}]\n{doc.page_content}" for doc in docs
         )
-        answer = await self._answer_chain.ainvoke({"context": context, "question": question})
+        # Retrieval is independent of the answering LLM, so a per-request llm can
+        # override the default without touching the (Voyage-built) vector store.
+        chain = self._answer_chain if llm is None else RAG_PROMPT | llm | StrOutputParser()
+        answer = await chain.ainvoke({"context": context, "question": question})
         return answer.strip(), docs

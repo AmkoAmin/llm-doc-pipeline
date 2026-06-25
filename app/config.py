@@ -4,8 +4,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application settings, loaded from environment variables / .env file."""
 
+    # Chat LLM provider: "anthropic" (default) or "openai". The embedding model
+    # is independent of this choice (see build_llm in main.py).
+    llm_provider: str = "anthropic"
+
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-6"
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o"
     voyage_api_key: str = ""
     embedding_model: str = "voyage-3.5"
     llm_max_tokens: int = 8192

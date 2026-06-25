@@ -4,14 +4,17 @@ import time
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from langchain_anthropic import ChatAnthropic
+from langchain_core.language_models import BaseChatModel
+from langchain_openai import ChatOpenAI
 from langchain_voyageai import VoyageAIEmbeddings
 
-from app.config import settings
+from app.config import settings, Settings
 from app.schemas import (
     AnalyzeResponse,
     ClassifyResponse,
@@ -54,14 +57,60 @@ def seed_demo_index(rag_demo: RagService) -> None:
         rag_demo.ingest(chunks)
 
 
+SUPPORTED_PROVIDERS = ("anthropic", "openai")
+
+
+def build_llm(settings: Settings, provider: str | None = None) -> BaseChatModel:
+    """Build a chat LLM for the given provider ("anthropic" or "openai").
+
+    The provider is selectable because the rest of the pipeline only depends on
+    the BaseChatModel interface. This is independent of the embedding model: the
+    chat LLM never touches the vector store, so the FAISS index (built with
+    Voyage) stays valid regardless of this choice.
+    """
+    provider = (provider or settings.llm_provider).lower()
+    if provider == "openai":
+        # No temperature: kept consistent with the Anthropic path / default.
+        return ChatOpenAI(
+            model=settings.openai_model,
+            max_tokens=settings.llm_max_tokens,
+            api_key=settings.openai_api_key or None,
+        )
+    if provider == "anthropic":
+        # No temperature: sampling params are rejected by some reasoning models.
+        return ChatAnthropic(
+            model=settings.anthropic_model,
+            max_tokens=settings.llm_max_tokens,
+            api_key=settings.anthropic_api_key or None,
+        )
+    raise ValueError(f"Unknown llm_provider: {provider!r}")
+
+
+def build_llm_registry(settings: Settings) -> dict[str, BaseChatModel]:
+    """Build every provider that can be constructed (i.e. whose key is present).
+
+    A provider without credentials is simply left out, so the UI can offer only
+    what actually works. The configured default provider must be available.
+    """
+    registry: dict[str, BaseChatModel] = {}
+    for provider in SUPPORTED_PROVIDERS:
+        try:
+            registry[provider] = build_llm(settings, provider)
+        except Exception as exc:  # noqa: BLE001 - missing key -> provider unavailable
+            print(f"[llm] provider {provider!r} unavailable: {exc}")
+    default = settings.llm_provider.lower()
+    if default not in registry:
+        raise RuntimeError(f"Default llm_provider {default!r} could not be built")
+    return registry
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # No temperature: sampling params are rejected by claude-opus-4-8.
-    llm = ChatAnthropic(
-        model=settings.anthropic_model,
-        max_tokens=settings.llm_max_tokens,
-        api_key=settings.anthropic_api_key or None,
-    )
+    llms = build_llm_registry(settings)
+    default_provider = settings.llm_provider.lower()
+    llm = llms[default_provider]
+    app.state.llms = llms
+    app.state.default_provider = default_provider
     embeddings = VoyageAIEmbeddings(
         model=settings.embedding_model,
         api_key=settings.voyage_api_key or None,
@@ -159,6 +208,14 @@ def get_rag_demo(request: Request) -> RagService:
     return request.app.state.rag_demo
 
 
+def get_llms(request: Request) -> dict[str, BaseChatModel]:
+    return request.app.state.llms
+
+
+def get_default_provider(request: Request) -> str:
+    return request.app.state.default_provider
+
+
 async def read_document(file: UploadFile) -> str:
     data = await file.read()
     if len(data) > settings.max_upload_bytes:
@@ -248,16 +305,35 @@ async def ingest_document(
     )
 
 
+@app.get("/providers")
+async def providers(
+    llms: dict[str, BaseChatModel] = Depends(get_llms),
+    default: str = Depends(get_default_provider),
+) -> dict[str, Any]:
+    """List the chat LLM providers that are configured and available."""
+    return {"providers": sorted(llms.keys()), "default": default}
+
+
 @app.post("/rag/query", response_model=QueryResponse)
 async def query_documents(
     body: QueryRequest,
     rag: RagService = Depends(get_rag),
     rag_demo: RagService = Depends(get_rag_demo),
+    llms: dict[str, BaseChatModel] = Depends(get_llms),
+    default_provider: str = Depends(get_default_provider),
 ) -> QueryResponse:
     """Answer a question using retrieval-augmented generation over ingested documents."""
     service = rag_demo if body.mode == "demo" else rag
+    provider = body.provider or default_provider
+    if provider not in llms:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Provider '{provider}' is not available on this server.",
+        )
     try:
-        answer, docs = await service.query(body.question, top_k=body.top_k)
+        answer, docs = await service.query(
+            body.question, top_k=body.top_k, llm=llms[provider]
+        )
     except EmptyIndexError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return QueryResponse(

@@ -6,7 +6,14 @@ from langchain_core.messages import AIMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 
 from app.config import settings
-from app.main import app, get_analysis, get_rag, get_rag_demo
+from app.main import (
+    app,
+    get_analysis,
+    get_default_provider,
+    get_llms,
+    get_rag,
+    get_rag_demo,
+)
 from app.services.analysis import AnalysisService
 from app.services.rag import RagService
 
@@ -78,7 +85,7 @@ def rag_demo_service(fake_llm, fake_embeddings) -> RagService:
 
 
 @pytest.fixture
-def client(analysis_service, rag_service, rag_demo_service, monkeypatch) -> TestClient:
+def client(analysis_service, rag_service, rag_demo_service, fake_llm, monkeypatch) -> TestClient:
     """Test client with fake LLM/embeddings; lifespan is intentionally not run.
 
     Rate limiting is disabled by default; tests that exercise it opt back in.
@@ -87,6 +94,8 @@ def client(analysis_service, rag_service, rag_demo_service, monkeypatch) -> Test
     app.dependency_overrides[get_analysis] = lambda: analysis_service
     app.dependency_overrides[get_rag] = lambda: rag_service
     app.dependency_overrides[get_rag_demo] = lambda: rag_demo_service
+    app.dependency_overrides[get_llms] = lambda: {"anthropic": fake_llm}
+    app.dependency_overrides[get_default_provider] = lambda: "anthropic"
     yield TestClient(app)
     app.dependency_overrides.clear()
 
